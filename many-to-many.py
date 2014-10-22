@@ -5,6 +5,7 @@ from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import Table
+from sqlalchemy.schema import UniqueConstraint
  
 import logging
 log = logging.getLogger(__name__)
@@ -66,6 +67,7 @@ class Breed(Base):
     # Build associative table and BreedTrait class
 
 breed_breedtrait_table = Table('breed_breedtrait', Base.metadata,
+    Column('id', Integer, primary_key=True),
     Column('breed_id', Integer, ForeignKey('breed.id'), nullable=False),
     Column('breedtrait_id', Integer, ForeignKey('breedtrait.id'), nullable=False)
 )
@@ -94,13 +96,33 @@ class Shelter(Base):
  
     def __repr__(self):
         return "Shelter: {}".format(self.name) 
+
+class PetPersonAssociation(Base):
+    __tablename__ = 'petPersonAssociation'
+    __table_args__ = (
+            UniqueConstraint('pet_id', 'person_id', name='person_pet_uniqueness_constraint'),
+        )
+
+
+    id = Column(Integer, primary_key=True)
+    pet_id = Column(Integer, ForeignKey('pet.id'), nullable=False)
+    person_id = Column(Integer, ForeignKey('person.id'), nullable=False)
+    nickname = Column(String)
+
+    pet = relationship('Pet', backref=backref('person_associations'))
+    person = relationship('Person', backref=backref('pet_associations'))
+
+    def __repr__(self):
+        return "PetPersonAssociation( {} : {} )".format(self.pet.name, 
+            self.person.first_name)
  
  
-# our many-to-many association table, in our domain model *before* Pet class 
-pet_person_table = Table('pet_person', Base.metadata,
-    Column('pet_id', Integer, ForeignKey('pet.id'), nullable=False),
-    Column('person_id', Integer, ForeignKey('person.id'), nullable=False)
-)
+# If we went the many-to-many association table route, this is what we'd use:
+# pet_person_table = Table('pet_person', Base.metadata,
+#     Column('pet_id', Integer, ForeignKey('pet.id'), nullable=False),
+#     Column('person_id', Integer, ForeignKey('person.id'), nullable=False),
+#     Column('nickname', String)
+# )
  
  
 class Pet(Base):
@@ -116,10 +138,11 @@ class Pet(Base):
     breed_id = Column(Integer, ForeignKey('breed.id'), nullable=False ) 
     shelter_id = Column(Integer, ForeignKey('shelter.id') ) 
     
-    # no foreign key here, it's in the many-to-many table        
-    # mapped relationship, pet_person_table must already be in scope!
-    people = relationship('Person', secondary=pet_person_table, backref='pets')
- 
+
+    def nicknames(self):
+        """return all nicknames for this pet"""
+        return [ assoc.nickname for assoc in self.person_associations]
+
     def __repr__(self):
         return "Pet:{}".format(self.name) 
  
@@ -130,9 +153,7 @@ class Person(Base):
     last_name = Column(String, nullable=False)
     age = Column(Integer)
     _phone = Column(String)
- 
-    # mapped relationship 'pets' from backref on Pet class, so we don't
-    # need to add it here.
+
  
     @property
     def phone(self):
@@ -214,8 +235,7 @@ if __name__ == "__main__":
     spot = Pet(name = "Spot",
                 age = 2,
                 adopted = True,
-                breed = Breed(name="Dalmatian", species=Species(name="Dog")),
-                people = [tom, sue]
+                breed = Breed(name="Dalmatian", species=Species(name="Dog"))
                 )
  
     # now we set Spot's breed to a variable because we don't want to create
@@ -232,12 +252,11 @@ if __name__ == "__main__":
                 ) 
  
     log.info("Adding Goldie and Spot to session and committing changes to DB")
-    db_session.add_all([spot, goldie])
+
+
+    db_session.add_all([spot, goldie, tom, sue])
     db_session.commit()
- 
-    assert tom in spot.people
-    spot.people.remove(tom)
-    assert spot not in tom.pets
+
  
     # Now we add breed traits to golden retrievers and dalmations
 
@@ -259,8 +278,21 @@ if __name__ == "__main__":
     assert longhair in golden.breedtrait
     golden.breedtrait.remove(longhair)
     assert longhair not in golden.breedtrait
- 
-    #################################################
+
+
+    log.info("Setting up some nicknames")
+    log.info( "spot's id {}".format(spot.id))
+    log.info( "goldie's id {}".format(goldie.id))
+    log.info( "tom's id {}".format(tom.id))
+    log.info( "sue's id {}".format(sue.id))
+    sue.pet_associations.append( PetPersonAssociation( pet_id=spot.id, person_id=sue.id, nickname="cheerio"))
+    tom.pet_associations.append( PetPersonAssociation( pet_id=spot.id, person_id=tom.id, nickname="buddy"))
+    sue.pet_associations.append( PetPersonAssociation( pet_id=goldie.id, person_id=sue.id, nickname="happy"))
+
+
+    print "The nicknames for spot are: {}".format(spot.nicknames())
+    print "The nicknames for goldie are: {}".format(goldie.nicknames())
+
     
     db_session.close()
     log.info("all done!")
