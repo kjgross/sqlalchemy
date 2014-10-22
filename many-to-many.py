@@ -124,12 +124,20 @@ class PetPersonAssociation(Base):
 #     Column('nickname', String)
 # )
  
+
+
+pet_to_pet = Table("pet_to_pet", Base.metadata,
+    Column("left_pet_id", Integer, ForeignKey("pet.id"), primary_key=True),
+    Column("right_pet_id", Integer, ForeignKey("pet.id"), primary_key=True)
+)
+
  
 class Pet(Base):
     """
     domain model class for a Pet, which has a many-to-one relation with Shelter, 
     a many-to-one relation with breed, and a many-to-many relation with person
     """
+    """Each pet can have 2 parents and 0 or more children """
     __tablename__ = 'pet'
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
@@ -137,7 +145,13 @@ class Pet(Base):
     adopted = Column(Boolean)
     breed_id = Column(Integer, ForeignKey('breed.id'), nullable=False ) 
     shelter_id = Column(Integer, ForeignKey('shelter.id') ) 
-    
+    #parentM_id = Column(Integer, ForeignKey('pet.id'), nullable=True)
+    right_pet_id = Column(Integer, ForeignKey('pet.id'), nullable=True)
+    left_pet_id = Column(Integer, ForeignKey('pet.id'), nullable=True)
+    #parentM = relationship('Pet', remote_side='Pet.id', backref="children")
+    right_nodes = relationship("Pet", secondary=pet_to_pet, primaryjoin=id==pet_to_pet.c.left_pet_id, secondaryjoin=id==pet_to_pet.c.right_pet_id,backref="left_pets")
+
+
 
     def nicknames(self):
         """return all nicknames for this pet"""
