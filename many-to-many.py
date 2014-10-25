@@ -1,3 +1,6 @@
+# Getting a null constraint error when I run this. Something about my delete pet not 
+# removing the pet person association is wrong, but I don't know where to fix it
+
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, Boolean, Text
@@ -40,7 +43,8 @@ class Species(Base):
     # database fields
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
-    breeds = relationship('Breed', backref="species")
+    breeds = relationship('Breed', backref="species", cascade="all, delete-orphan")
+
  
     # methods
     def __repr__(self):
@@ -107,10 +111,10 @@ class PetPersonAssociation(Base):
     id = Column(Integer, primary_key=True)
     pet_id = Column(Integer, ForeignKey('pet.id'), nullable=False)
     person_id = Column(Integer, ForeignKey('person.id'), nullable=False)
-    nickname = Column(String)
+    nickname = Column(String, nullable=True)
 
-    pet = relationship('Pet', backref=backref('person_associations'))
-    person = relationship('Person', backref=backref('pet_associations'))
+    pet = relationship('Pet', backref=backref('person_associations'), single_parent=True, cascade="all, delete-orphan")
+    person = relationship('Person', backref=backref('pet_associations'), single_parent=True, cascade="all, delete-orphan")
 
     def __repr__(self):
         return "PetPersonAssociation( {} : {} )".format(self.pet.name, 
@@ -143,7 +147,7 @@ class Pet(Base):
     name = Column(String, nullable=False)
     age = Column(Integer)
     adopted = Column(Boolean)
-    breed_id = Column(Integer, ForeignKey('breed.id'), nullable=False ) 
+    breed_id = Column(Integer, ForeignKey('breed.id'), nullable=True ) 
     shelter_id = Column(Integer, ForeignKey('shelter.id') ) 
     right_pet_id = Column(Integer, ForeignKey('pet.id'), nullable=True)
     left_pet_id = Column(Integer, ForeignKey('pet.id'), nullable=True)
@@ -349,6 +353,29 @@ if __name__ == "__main__":
 
     print "The nicknames for spot are: {}".format(spot.nicknames())
     print "The nicknames for goldie are: {}".format(goldie.nicknames())
+
+    # log.info("Checking if delete species cascade works")
+    # assert golden.species_id
+    # assert dog.id
+    # db_session.delete(dog)
+    # db_session.commit()
+    # assert db_session.query(Species).get(dog.id) == None
+    # assert db_session.query(Breed).get(golden.id) == None 
+
+
+    log.info("Checking if delete a pet deletes nicknames works")
+    assert db_session.query(PetPersonAssociation).get(spot.id) != None
+    assert spot.id
+    db_session.delete(spot)
+    db_session.commit()
+    assert db_session.query(PetPersonAssociation).get(spot.id) == None
+    assert db_session.query(Pet).get(spot.id) == None
+
+
+
+
+
+
 
     
     db_session.close()
