@@ -145,10 +145,8 @@ class Pet(Base):
     adopted = Column(Boolean)
     breed_id = Column(Integer, ForeignKey('breed.id'), nullable=False ) 
     shelter_id = Column(Integer, ForeignKey('shelter.id') ) 
-    #parentM_id = Column(Integer, ForeignKey('pet.id'), nullable=True)
     right_pet_id = Column(Integer, ForeignKey('pet.id'), nullable=True)
     left_pet_id = Column(Integer, ForeignKey('pet.id'), nullable=True)
-    #parentM = relationship('Pet', remote_side='Pet.id', backref="children")
     right_nodes = relationship("Pet", secondary=pet_to_pet, primaryjoin=id==pet_to_pet.c.left_pet_id, secondaryjoin=id==pet_to_pet.c.right_pet_id,backref="left_pets")
 
 
@@ -256,19 +254,64 @@ if __name__ == "__main__":
     # a duplicate record for Dog in the species table, which is what would 
     # happen if we created Dog on the fly again when instantiating Goldie
     dog = spot.breed.species
- 
+
+
+
+    log.info("Creating pet object for GoldieMom, who is a Golden Retriever dog")
+    goldiemom = Pet(name="GoldieMom",
+                age=13,
+                adopted = False,
+                shelter = Shelter(name="Happy Animal Place"),
+                breed = Breed(name="Golden Retriever", species=dog)
+                ) 
+
+    log.info("Creating pet object for GoldieDad, who is a Golden Retriever dog")
+    goldiedad = Pet(name="GoldieDad",
+                age=15,
+                adopted = False,
+                shelter = Shelter(name="Happy Animal Place"),
+                breed = Breed(name="Golden Retriever", species=dog)
+                ) 
+
+    db_session.add_all([spot, goldiemom, goldiedad, tom, sue])
+    db_session.commit()
+
     log.info("Creating pet object for Goldie, who is a Golden Retriever dog")
     goldie = Pet(name="Goldie",
                 age=9,
                 adopted = False,
                 shelter = Shelter(name="Happy Animal Place"),
-                breed = Breed(name="Golden Retriever", species=dog)
+                breed = Breed(name="Golden Retriever", species=dog),
+                right_pet_id = goldiemom.id,
+                left_pet_id = goldiedad.id
                 ) 
+
+    db_session.add_all([goldie])
+    db_session.commit()
+
+    log.info("Creating pet object for GoldieDad, who is a Golden Retriever dog")
+    goldiekid1 = Pet(name="GoldieKid2",
+                age=2,
+                adopted = False,
+                shelter = Shelter(name="Happy Animal Place"),
+                breed = Breed(name="Golden Retriever", species=dog),
+                right_pet_id = goldie.id
+                ) 
+
+    log.info("Creating pet object for GoldieDad, who is a Golden Retriever dog")
+    goldiekid2 = Pet(name="GoldieKid2",
+                age=1,
+                adopted = False,
+                shelter = Shelter(name="Happy Animal Place"),
+                breed = Breed(name="Golden Retriever", species=dog),
+                right_pet_id = goldie.id
+                ) 
+
  
-    log.info("Adding Goldie and Spot to session and committing changes to DB")
+    log.info("Adding Goldie's kids to session and committing changes to DB")
 
 
-    db_session.add_all([spot, goldie, tom, sue])
+    db_session.add_all([goldiekid1, goldiekid2])
     db_session.commit()
 
  
